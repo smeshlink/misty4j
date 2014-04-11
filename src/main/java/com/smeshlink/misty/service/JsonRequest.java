@@ -163,8 +163,14 @@ public class JsonRequest implements IServiceRequest {
 	public Object getBody() {
 		if (body == null) {
 			Object obj = json.opt("body");
-			if (obj != null)
-				body = (new JSONFormatter()).parseObject(obj);
+			if (obj != null) {
+				JSONFormatter formatter = new JSONFormatter();
+				if ("cmd".equalsIgnoreCase(getMethod())) {
+					body = formatter.parseCommandRequest((JSONObject) obj);
+				} else {
+					body = formatter.parseObject(obj);
+				}
+			}
 		}
 		return body;
 	}

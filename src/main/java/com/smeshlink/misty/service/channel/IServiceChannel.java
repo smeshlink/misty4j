@@ -18,4 +18,8 @@ public interface IServiceChannel {
 	IFeedService feed();
 	IFeedService feed(User user);
 	IFeedService feed(Feed parent);
+	void setTimeout(int timeout);
+	int getTimeout();
+	void addCommandListener(ICommandListener listener);
+	void removeCommandListener(ICommandListener listener);
 }

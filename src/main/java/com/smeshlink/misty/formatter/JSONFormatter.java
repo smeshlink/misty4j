@@ -24,6 +24,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONWriter;
 
+import com.smeshlink.misty.command.CommandRequest;
+import com.smeshlink.misty.command.CommandResponse;
 import com.smeshlink.misty.entity.Entry;
 import com.smeshlink.misty.entity.Feed;
 import com.smeshlink.misty.entity.Location;
@@ -114,6 +116,8 @@ public class JSONFormatter implements IFeedFormatter {
 				
 				if (result instanceof Feed) {
 					write(writer, (Feed) result);
+				} else if (result instanceof CommandResponse) {
+					write(writer, (CommandResponse) result);
 				}
 			}
 			
@@ -238,6 +242,20 @@ public class JSONFormatter implements IFeedFormatter {
 		return null;
 	}
 	
+	public CommandRequest parseCommandRequest(JSONObject jsonObj) {
+		CommandRequest cmd = new CommandRequest();
+		cmd.setName(jsonObj.optString("name"));
+		cmd.setCmdKey(jsonObj.optString("cmdkey"));
+		JSONObject paramsObj = jsonObj.optJSONObject("params");
+		if (paramsObj != null) {
+			for (Iterator it = paramsObj.keys(); it.hasNext(); ) {
+				String key = (String) it.next();
+				cmd.getParameters().put(key, paramsObj.get(key));
+			}
+		}
+		return cmd;
+	}
+	
 	private Feed parseFeed(JSONObject jsonObj) {
 		Feed feed = new Feed();
 		
@@ -246,6 +264,8 @@ public class JSONFormatter implements IFeedFormatter {
 			String key = (String) it.next();
 			if ("name".equals(key)) {
 				feed.setName(jsonObj.getString(key));
+			} else if ("title".equals(key)) {
+				feed.setTitle(jsonObj.getString(key));
 			} else if ("created".equals(key)) {
 				try {
 					feed.setCreated(DateTimeUtils.fromDateTime8601(jsonObj.getString(key)));
@@ -462,5 +482,18 @@ public class JSONFormatter implements IFeedFormatter {
 	
 	private JSONWriter getJSONWriter(Writer writer) throws UnsupportedEncodingException {
 		return new JSONWriter(writer);
+	}
+	
+	private void write(JSONWriter writer, CommandResponse response) {
+		writer.object();
+		
+		writeValue(writer, "status", String.valueOf(response.getStatus()));
+		writeValue(writer, "cmdkey", response.getCmdKey());
+		
+		if (response.getBody() != null) {
+			writer.key("body").value(response.getBody());
+		}
+		
+		writer.endObject();
 	}
 }

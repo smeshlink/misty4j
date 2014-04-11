@@ -13,20 +13,27 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import org.json.JSONObject;
 
+import com.smeshlink.misty.command.CommandRequest;
+import com.smeshlink.misty.command.CommandResponse;
 import com.smeshlink.misty.entity.Feed;
 import com.smeshlink.misty.entity.User;
 import com.smeshlink.misty.formatter.JSONFormatter;
 import com.smeshlink.misty.service.IServiceRequest;
 import com.smeshlink.misty.service.IServiceResponse;
+import com.smeshlink.misty.service.JsonRequest;
 import com.smeshlink.misty.service.JsonResponse;
 import com.smeshlink.misty.service.QueryOption;
 import com.smeshlink.misty.service.ServiceException;
 import com.smeshlink.misty.service.ServiceRequestImpl;
+import com.smeshlink.misty.service.ServiceResponse;
 import com.smeshlink.misty.util.Base64;
 
 /**
@@ -45,6 +52,8 @@ public class TcpChannel implements IServiceChannel {
 	private int maxPoolSize = 1;
 	private List pool = new ArrayList();
 	private JSONFormatter formatter = new JSONFormatter();
+	private List commandListeners = new ArrayList();
+	private int timeout = 3000;
 	
 	public TcpChannel(String username, String password) {
 		this.username = username;
@@ -64,11 +73,29 @@ public class TcpChannel implements IServiceChannel {
 		return new FeedService(parent == null ? null : ("/feeds/" + parent.getPath()));
 	}
 	
-	private IServiceResponse execute(IServiceRequest request) throws IOException {
+	public void addCommandListener(ICommandListener listener) {
+		commandListeners.add(listener);
+	}
+	
+	public void removeCommandListener(ICommandListener listener) {
+		commandListeners.remove(listener);
+	}
+	
+	public void setTimeout(int timeout) {
+		this.timeout = timeout < 0 ? 0 : timeout;
+	}
+	
+	public int getTimeout() {
+		return timeout;
+	}
+	
+	private synchronized IServiceResponse execute(IServiceRequest request) throws IOException {
 		Connector connector = getConnector();
-		IServiceResponse resp = connector.execute(request);
+		
+		Pair pair = connector.execute(request);
 		connector.free();
-		return resp;
+		
+		return pair.getResponse();
 	}
 	
 	private synchronized Connector getConnector() {
@@ -130,11 +157,37 @@ public class TcpChannel implements IServiceChannel {
 		}
 	}
 	
+	class Pair {
+		IServiceRequest request;
+		private IServiceResponse response;
+		
+		public Pair(IServiceRequest request) {
+			this.request = request;
+		}
+		
+		public synchronized IServiceResponse getResponse() {
+			if (response == null) {
+				notifyAll();
+				try {
+					wait(timeout);
+				} catch (InterruptedException e) {
+					// ignore
+				}
+			}
+			return response;
+		}
+		
+		public synchronized void setResponse(IServiceResponse response) {
+			this.response = response;
+			notifyAll();
+		}
+	}
+	
 	class Connector implements Runnable {
 		private Socket socket;
 		private boolean connected = false;
 		private boolean free = true;
-		private IServiceResponse response;
+		private Map waitingRequests = new HashMap();
 		
 		public boolean isFree() {
 			return free;
@@ -154,24 +207,34 @@ public class TcpChannel implements IServiceChannel {
 		}
 		
 		private synchronized void setResponse(IServiceResponse response) {
-			this.response = response;
-			notifyAll();
+			Pair pair = (Pair) waitingRequests.remove(response.getToken());
+			if (pair != null)
+				pair.setResponse(response);
 		}
 		
-		private synchronized IServiceResponse getResponse() {
-			if (response == null) {
-				notifyAll();
-				try {
-					wait(3000);
-				} catch (InterruptedException e) {
-					// ignore
+		private void processRequest(IServiceRequest request) {
+			if (request.getMethod().equalsIgnoreCase("cmd")) {
+				System.out.println(request);
+				// TODO aggregate responses
+				CommandRequest cmdReq = (CommandRequest) request.getBody();
+				CommandResponse cmdResp = null;
+				for (Iterator it = commandListeners.iterator(); it.hasNext(); ) {
+					ICommandListener listener = (ICommandListener) it.next();
+					cmdResp = listener.command(cmdReq);
+				}
+				if (cmdResp != null) {
+					cmdResp.setCmdKey(cmdReq.getCmdKey());
+					ServiceResponse response = new ServiceResponse();
+					response.setStatus(cmdResp.getStatus());
+					response.setBody(cmdResp);
+					response.setToken(request.getToken());
+					send(response);
 				}
 			}
-			return response;
 		}
 		
-		private byte[] packetBuffer = new byte[10000];
-		private int packetBufferIndex;
+		private IoBuffer packetBuffer = IoBuffer.allocate(10240).setAutoExpand(true);
+		private byte[] byteBuffer = new byte[1];
         private int counter;
         
         public void close() throws IOException {
@@ -216,27 +279,31 @@ public class TcpChannel implements IServiceChannel {
 						if (bytesToRead == 0)
 							bytesToRead = 1;
 						for (int i = 0; i < bytesToRead; i++) {
-							int read = in.read(packetBuffer, packetBufferIndex, 1);
+							int read = in.read(byteBuffer, 0, 1);
 							if (read < 0)
 								throw new IOException("EOF");
 							else if (read == 0)
 								continue;
 							
-							if ('{' == packetBuffer[packetBufferIndex]) {
+							packetBuffer.put(byteBuffer[0]);
+							
+							if ('{' == byteBuffer[0]) {
 								counter++;
-							} else if ('}' == packetBuffer[packetBufferIndex]) {
+							} else if ('}' == byteBuffer[0]) {
 								counter--;
 								
 								if (counter == 0) {
-									String json = new String(packetBuffer, 0, packetBufferIndex + 1, "utf-8");
+									packetBuffer.flip();
+									String json = new String(packetBuffer.array(), packetBuffer.arrayOffset(), packetBuffer.limit(), "utf-8");
 									JSONObject jsonObj = new JSONObject(json);
-									setResponse(new JsonResponse(jsonObj));
-									packetBufferIndex = 0;
+									if (jsonObj.has("status"))
+										setResponse(new JsonResponse(jsonObj));
+									else if (jsonObj.has("method"))
+										processRequest(new JsonRequest(jsonObj));
+									packetBuffer.clear();
 									break;
 								}
 							}
-							
-							packetBufferIndex++;
 						}
 					} catch (IOException ex) {
 						removeConnector(this, ex);
@@ -245,8 +312,9 @@ public class TcpChannel implements IServiceChannel {
 			}
 		}
 		
-		public synchronized IServiceResponse execute(IServiceRequest request) {
-			response = null;
+		public synchronized Pair execute(IServiceRequest request) {
+			Pair pair = new Pair(request);
+			waitingRequests.put(request.getToken(), pair);
 			
 			ByteArrayOutputStream stream = new ByteArrayOutputStream();
 			formatter.format(stream, request);
@@ -258,7 +326,18 @@ public class TcpChannel implements IServiceChannel {
 				return null;
 			}
 			
-			return getResponse();
+			return pair;
+		}
+		
+		private synchronized void send(IServiceResponse response) {
+			ByteArrayOutputStream stream = new ByteArrayOutputStream();
+			formatter.format(stream, response);
+			
+			try {
+				socket.getOutputStream().write(stream.toByteArray());
+			} catch (IOException ex) {
+				removeConnector(this, ex);
+			}
 		}
 	}
 	
@@ -401,6 +480,7 @@ public class TcpChannel implements IServiceChannel {
 		request.addHeader("authorization", auth);
 		request.setResource(resource);
 		request.setBody(body);
+		request.setToken(UUID.randomUUID().toString());
 		return request;
 	}
 

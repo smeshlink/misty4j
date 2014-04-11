@@ -44,7 +44,7 @@ public class HttpChannel implements IServiceChannel {
 
 	private static final String HEADER_KEY_API = "X-ApiKey";
 	private static final String HEADER_ACCEPT = "Accept";
-	private static final String HEADER_USER_AGENT = "User Agent";
+	private static final String HEADER_USER_AGENT = "User-Agent";
 	private static final String USER_AGENT = "Misty-Java-Lib/0.1.0";
 
 	private String host = "api.misty.smeshlink.com";
@@ -75,6 +75,23 @@ public class HttpChannel implements IServiceChannel {
 
 	public IFeedService feed(Feed parent) {
 		return new FeedService(parent == null ? null : ("/feeds/" + parent.getPath()));
+	}
+	
+	public void addCommandListener(ICommandListener listener) {
+		// TODO
+	}
+	
+	public void removeCommandListener(ICommandListener listener) {
+		// TODO
+	}
+	
+	public void setTimeout(int timeout) {
+		// TODO
+	}
+	
+	public int getTimeout() {
+		// TODO
+		return 0;
 	}
 	
 	public void setHost(String host) {
@@ -140,6 +157,17 @@ public class HttpChannel implements IServiceChannel {
 			return null;
 	}
 	
+	private String getExtension() {
+		if (mediaType == MEDIA_TYPE_JSON)
+			return ".json";
+		else if (mediaType == MEDIA_TYPE_XML)
+			return ".xml";
+		else if (mediaType == MEDIA_TYPE_CSV)
+			return ".csv";
+		else
+			return "";
+	}
+	
 	private HttpMethod buildMethod(String method, String path, String entity) {
 		HttpMethod m = null;
 		if ("GET".equals(method)) {
@@ -167,7 +195,7 @@ public class HttpChannel implements IServiceChannel {
 		}
 
 		try {
-			m.setURI(new URI("http", host, path, null, null));
+			m.setURI(new URI("http", host, path + getExtension(), null, null));
 		} catch (URIException e) {
 			ServiceException.badRequest("Invalid URI requested.");
 		}

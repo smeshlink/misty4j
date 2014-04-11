@@ -17,7 +17,6 @@ public interface IServiceResponse {
 	int getStatus();
 	Object getBody();
 	Map getHeaders();
-	void setHeader(String name, String value);
 	String getToken();
 	void setToken(String token);
 }
