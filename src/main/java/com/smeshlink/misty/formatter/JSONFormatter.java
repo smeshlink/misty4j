@@ -269,7 +269,7 @@ public class JSONFormatter implements IFeedFormatter {
 		feed.setEmail(jsonObj.optString("email"));
 		
 		String created = jsonObj.optString("created");
-		if (created != null) {
+		if (created != null && created.length() > 0) {
 			try {
 				feed.setCreated(DateTimeUtils.fromDateTime8601(created));
 			} catch (ParseException e) {
@@ -278,7 +278,7 @@ public class JSONFormatter implements IFeedFormatter {
 		}
 		
 		String updated = jsonObj.optString("updated");
-		if (updated != null) {
+		if (updated != null && updated.length() > 0) {
 			try {
 				feed.setUpdated(DateTimeUtils.fromDateTime8601(updated));
 			} catch (ParseException e) {
