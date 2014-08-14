@@ -135,7 +135,7 @@ public class MistyService implements IMistyService {
 					throw new ServiceException(response.getStatus());
 				} else {
 					IFeedFormatter formatter = getFormatter(request.getFormat());
-					if (request.getBody() == null)
+					if (response.getBody() == null)
 						return formatter.parseFeeds(response.getResponseStream());
 					else
 						return formatter.parseFeeds(response.getBody());
@@ -169,7 +169,7 @@ public class MistyService implements IMistyService {
 					throw new ServiceException(response.getStatus());
 				} else {
 					IFeedFormatter formatter = getFormatter(request.getFormat());
-					if (request.getBody() == null)
+					if (response.getBody() == null)
 						return formatter.parseFeed(response.getResponseStream());
 					else
 						return formatter.parseFeed(response.getBody());

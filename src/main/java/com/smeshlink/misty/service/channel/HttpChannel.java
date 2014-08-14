@@ -70,6 +70,9 @@ public class HttpChannel implements IServiceChannel {
 	}
 	
 	public IServiceResponse execute(IServiceRequest request) {
+		if (request.getFormat() == null)
+			request.setFormat("json");
+		
 		HttpMethod method = buildMethod(request);
 		
 		try {

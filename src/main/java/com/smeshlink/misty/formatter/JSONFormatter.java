@@ -330,7 +330,7 @@ public class JSONFormatter implements IFeedFormatter {
 			}
 		}
 		
-		JSONArray children = jsonObj.getJSONArray("children");
+		JSONArray children = jsonObj.optJSONArray("children");
 		if (children != null) {
 			for (int i = 0; i < children.length(); i++) {
 				Feed child = parseFeed(children.getJSONObject(i));

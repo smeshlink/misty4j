@@ -15,7 +15,9 @@ import com.smeshlink.misty.entity.Feed;
  * 
  */
 public interface IFeedService {
+	Feed find(String path) throws ServiceException;
 	Feed find(String path, QueryOption opt) throws ServiceException;
+	Collection list() throws ServiceException;
 	Collection list(QueryOption opt) throws ServiceException;
 	boolean create(Feed feed) throws ServiceException;
 	boolean update(Feed feed) throws ServiceException;
