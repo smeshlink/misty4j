@@ -58,7 +58,7 @@ public class ServiceException extends RuntimeException {
 		throw new ServiceException(BAD_REQUEST, message);
 	}
 	
-	public static void timeout(String message) throws ServiceException {
-		throw new ServiceException(408, message);
+	public static ServiceException timeout(String message) throws ServiceException {
+		return new ServiceException(504, message);
 	}
 }
