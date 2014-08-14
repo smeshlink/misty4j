@@ -14,8 +14,6 @@ import java.util.Map;
 
 import org.json.JSONObject;
 
-import com.smeshlink.misty.formatter.JSONFormatter;
-
 /**
  * Represents a JSON request to a service.
  * 
@@ -34,6 +32,7 @@ public class JsonResponse implements IServiceResponse {
 		status = json.optInt("status", 200);
 		resource = json.optString("resource", null);
 		headers = json.optJSONObject("headers");
+		body = json.opt("body");
 	}
 
 	public String getHeader(String name) {
@@ -61,11 +60,6 @@ public class JsonResponse implements IServiceResponse {
 	}
 
 	public Object getBody() {
-		if (body == null) {
-			Object obj = json.opt("body");
-			if (obj != null)
-				body = (new JSONFormatter()).parseObject(obj);
-		}
 		return body;
 	}
 
