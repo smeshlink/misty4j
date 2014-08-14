@@ -13,14 +13,17 @@ package com.smeshlink.misty.entity;
  * 
  */
 public class Location {
-	public static final int DISPOSITION_FIXED = 0;
-	public static final int DISPOSITION_MOBILE = 1;
+	private static final Integer ZERO = new Integer(0);
+	private static final Integer ONE = new Integer(1);
+	
+	public static final Integer DISPOSITION_FIXED = ZERO;
+	public static final Integer DISPOSITION_MOBILE = ONE;
 
-	public static final int EXPOSURE_INDOOR = 0;
-	public static final int EXPOSURE_OUTDOOR = 1;
+	public static final Integer EXPOSURE_INDOOR = ZERO;
+	public static final Integer EXPOSURE_OUTDOOR = ONE;
 
-	public static final int DOMAIN_PHYSICAL = 0;
-	public static final int DOMAIN_VIRTUAL = 1;
+	public static final Integer DOMAIN_PHYSICAL = ZERO;
+	public static final Integer DOMAIN_VIRTUAL = ONE;
 	
 	private String name;
 	private Integer disposition;
@@ -32,27 +35,27 @@ public class Location {
 	private Double speed;
 	private Double bearing;
 	
-	public static String getDispositionString(int disposition) {
+	public static String getDispositionString(Integer disposition) {
 		return disposition == DISPOSITION_MOBILE ? "mobile" : "fixed";
 	}
 	
-	public static int parseDisposition(String disposition) {
+	public static Integer parseDisposition(String disposition) {
 		return "mobile".equalsIgnoreCase(disposition) ? DISPOSITION_MOBILE : DISPOSITION_FIXED;
 	}
 
-	public static String getExposureString(int exposure) {
+	public static String getExposureString(Integer exposure) {
 		return exposure == EXPOSURE_OUTDOOR ? "outdoor" : "indoor";
 	}
 	
-	public static int parseExposure(String exposure) {
+	public static Integer parseExposure(String exposure) {
 		return "outdoor".equalsIgnoreCase(exposure) ? EXPOSURE_OUTDOOR : EXPOSURE_INDOOR;
 	}
 
-	public static String getDomainString(int domain) {
+	public static String getDomainString(Integer domain) {
 		return domain == DOMAIN_VIRTUAL ? "virtual" : "physical";
 	}
 	
-	public static int parseDomain(String domain) {
+	public static Integer parseDomain(String domain) {
 		return "virtual".equalsIgnoreCase(domain) ? DOMAIN_VIRTUAL : DOMAIN_PHYSICAL;
 	}
 
@@ -69,7 +72,7 @@ public class Location {
 	}
 	
 	public String getDispositionString() {
-		return getDispositionString(disposition == null ? 0 : disposition.intValue());
+		return disposition == null ? null : getDispositionString(disposition);
 	}
 
 	public void setDisposition(Integer disposition) {
@@ -81,7 +84,7 @@ public class Location {
 	}
 	
 	public String getExposureString() {
-		return getExposureString(exposure == null ? 0 : exposure.intValue());
+		return exposure == null ? null : getExposureString(exposure);
 	}
 
 	public void setExposure(Integer exposure) {
@@ -93,7 +96,7 @@ public class Location {
 	}
 	
 	public String getDomainString() {
-		return getDomainString(domain == null ? 0 : domain.intValue());
+		return domain == null ? null : getDomainString(domain);
 	}
 
 	public void setDomain(Integer domain) {

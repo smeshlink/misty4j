@@ -157,6 +157,21 @@ public class XmlFormatter implements IFeedFormatter {
 		}
 	}
 	
+	public Collection parseFeeds(InputStream stream) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	public Collection parseFeeds(Object obj) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	public Feed parseFeed(Object obj) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
 	public Feed parseFeed(InputStream inputStream) throws FormatException {
 		try {
 			SAXReader saxReader = new SAXReader();
@@ -258,9 +273,9 @@ public class XmlFormatter implements IFeedFormatter {
 				feed.setUnit(unit);
 			} else if (TAG_LOCATION.equals(elemName)) {
 				Location loc = new Location();
-				loc.setDomain(new Integer(Location.parseDomain(elem.attributeValue(TAG_DOMAIN))));
-				loc.setExposure(new Integer(Location.parseExposure(elem.attributeValue(TAG_EXPOSURE))));
-				loc.setDisposition(new Integer(Location.parseDisposition(elem.attributeValue(TAG_DISPOSITION))));
+				loc.setDomain(Location.parseDomain(elem.attributeValue(TAG_DOMAIN)));
+				loc.setExposure(Location.parseExposure(elem.attributeValue(TAG_EXPOSURE)));
+				loc.setDisposition(Location.parseDisposition(elem.attributeValue(TAG_DISPOSITION)));
 				for (Iterator itChild = elem.elementIterator(); itChild.hasNext(); ) {
 					Element child = (Element) itChild.next();
 					if (TAG_LOCATION_NAME.equals(child.getName()))

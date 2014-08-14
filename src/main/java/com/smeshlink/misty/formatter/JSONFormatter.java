@@ -6,15 +6,18 @@
  */
 package com.smeshlink.misty.formatter;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -256,57 +259,93 @@ public class JSONFormatter implements IFeedFormatter {
 		return cmd;
 	}
 	
-	private Feed parseFeed(JSONObject jsonObj) {
+	private static Feed parseFeed(JSONObject jsonObj) {
 		Feed feed = new Feed();
 		
-		Object currentObj = null;
-		for (Iterator it = jsonObj.keys(); it.hasNext(); ) {
-			String key = (String) it.next();
-			if ("name".equals(key)) {
-				feed.setName(jsonObj.getString(key));
-			} else if ("title".equals(key)) {
-				feed.setTitle(jsonObj.getString(key));
-			} else if ("created".equals(key)) {
-				try {
-					feed.setCreated(DateTimeUtils.fromDateTime8601(jsonObj.getString(key)));
-				} catch (ParseException e) {
-					throw new FormatException("Malformed date string " + jsonObj.getString(key), e);
-				}
-			} else if ("updated".equals(key)) {
-				try {
-					feed.setUpdated(DateTimeUtils.fromDateTime8601(jsonObj.getString(key)));
-				} catch (ParseException e) {
-					throw new FormatException("Malformed date string " + jsonObj.getString(key), e);
-				}
-			} else if ("keyType".equals(key)) {
-				feed.setKeyType(Feed.parseKeyType(jsonObj.getString(key)));
-			} else if ("valueType".equals(key)) {
-				feed.setValueType(Feed.parseValueType(jsonObj.getString(key)));
-			} else if ("current".equals(key)) {
-				currentObj = jsonObj.get(key);
-			} else if ("data".equals(key)) {
-				JSONArray jsonData = jsonObj.getJSONArray(key);
-				for (int i = 0; i < jsonData.length(); i++) {
-					Entry entry = parseEntry(feed, jsonData.getJSONObject(i));
-					if (entry != null)
-						feed.addEntry(entry);;
-				}
-			} else if ("children".equals(key)) {
-				JSONArray jsonChildren = jsonObj.getJSONArray(key);
-				for (int i = 0; i < jsonChildren.length(); i++) {
-					Feed child = parseFeed(jsonChildren.getJSONObject(i));
-					feed.addChild(child);
-				}
+		feed.setName(jsonObj.optString("name"));
+		feed.setTitle(jsonObj.optString("title"));
+		feed.setDescription(jsonObj.optString("description"));
+		feed.setWebsite(jsonObj.optString("website"));
+		feed.setEmail(jsonObj.optString("email"));
+		
+		String created = jsonObj.optString("created");
+		if (created != null) {
+			try {
+				feed.setCreated(DateTimeUtils.fromDateTime8601(created));
+			} catch (ParseException e) {
+				throw new FormatException("Malformed date string " + created, e);
+			}
+		}
+		
+		String updated = jsonObj.optString("updated");
+		if (updated != null) {
+			try {
+				feed.setUpdated(DateTimeUtils.fromDateTime8601(updated));
+			} catch (ParseException e) {
+				throw new FormatException("Malformed date string " + updated, e);
+			}
+		}
+		
+		String keyType = jsonObj.optString("keyType");
+		if (keyType != null)
+			feed.setKeyType(Feed.parseKeyType(keyType));
+		String valueType = jsonObj.optString("valueType");
+		if (valueType != null)
+			feed.setValueType(Feed.parseValueType(valueType));
+		
+		JSONObject location = jsonObj.optJSONObject("location");
+		if (location != null) {
+			Location loc = new Location();
+			feed.setLocation(loc);
+			loc.setName(location.optString("name"));
+			loc.setDomain(Location.parseDomain(location.optString("domain")));
+			loc.setExposure(Location.parseExposure(location.optString("exposure")));
+			loc.setDisposition(Location.parseDisposition(location.optString("disposition")));
+			loc.setElevation(optDouble(location, "ele"));
+			loc.setLongitude(optDouble(location, "lng"));
+			loc.setLatitude(optDouble(location, "lat"));
+			loc.setSpeed(optDouble(location, "speed"));
+			loc.setBearing(optDouble(location, "bearing"));
+		}
+		
+		JSONArray tags = jsonObj.optJSONArray("tags");
+		if (tags != null) {
+			for (int i = 0; i < tags.length(); i++) {
+				feed.addTag(tags.getString(i));
 			}
 		}
 
+		Object currentObj = jsonObj.opt("current");
+		if (currentObj == null)
+			currentObj = jsonObj.opt("value");
 		if (currentObj != null)
 			feed.setCurrentValue(parseValue(feed, currentObj));
 		
+		JSONArray data = jsonObj.optJSONArray("data");
+		if (data != null) {
+			for (int i = 0; i < data.length(); i++) {
+				Entry entry = parseEntry(feed, data.getJSONObject(i));
+				if (entry != null)
+					feed.addEntry(entry);;
+			}
+		}
+		
+		JSONArray children = jsonObj.getJSONArray("children");
+		if (children != null) {
+			for (int i = 0; i < children.length(); i++) {
+				Feed child = parseFeed(children.getJSONObject(i));
+				feed.addChild(child);
+			}
+		}
+		
 		return feed;
 	}
+	
+	private static Double optDouble(JSONObject json, String key) {
+		return json.has(key) ? new Double(json.optDouble(key)) : null;
+	}
 
-	private Entry parseEntry(Feed feed, JSONObject jsonObject) {
+	private static Entry parseEntry(Feed feed, JSONObject jsonObject) {
 		int keyType = feed.getKeyType();
 		if (keyType == Feed.KEY_NONE)
 			// assume string
@@ -335,7 +374,7 @@ public class JSONFormatter implements IFeedFormatter {
 		}
 	}
 
-	private Object parseValue(Feed feed, Object obj) {
+	private static Object parseValue(Feed feed, Object obj) {
 		int valueType = feed.getValueType();
 		if (valueType == Feed.VALUE_NONE)
 			// assume number
@@ -359,10 +398,6 @@ public class JSONFormatter implements IFeedFormatter {
 		return null;
 	}
 
-	public Feed parseFeed(InputStream inputStream) throws FormatException {
-		return null;
-	}
-	
 	public Entry parseValue(InputStream inputStream) throws FormatException {
 		return null;
 	}
@@ -495,5 +530,73 @@ public class JSONFormatter implements IFeedFormatter {
 		}
 		
 		writer.endObject();
+	}
+
+	public Collection parseFeeds(InputStream stream) {
+		try {
+			BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "utf-8"));
+			StringBuilder sb = new StringBuilder();
+			String line;
+			while ((line = reader.readLine()) != null)
+				sb.append(line);
+			
+			return parseFeeds(new JSONObject(sb.toString()));
+		} catch (IOException e) {
+			throw new FormatException(e);
+		}
+	}
+
+	public Collection parseFeeds(Object obj) {
+		if (obj instanceof Collection) {
+			return (Collection) obj;
+		} else if (obj instanceof JSONArray) {
+			JSONArray jsonArray = (JSONArray) obj;
+			ArrayList list = new ArrayList();
+			for (int i = 0; i < jsonArray.length(); i++) {
+				JSONObject jsonObj = jsonArray.optJSONObject(i);
+				list.add(parseFeed(jsonObj));
+			}
+			return list;
+		} else if (obj instanceof JSONObject) {
+			JSONObject jsonObj = (JSONObject) obj;
+			return parseFeeds(jsonObj);
+		} else {
+			return null;
+		}
+	}
+
+	public Feed parseFeed(InputStream stream) throws FormatException {
+		try {
+			BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "utf-8"));
+			StringBuilder sb = new StringBuilder();
+			String line;
+			while ((line = reader.readLine()) != null)
+				sb.append(line);
+			
+			return parseFeed(new JSONObject(sb.toString()));
+		} catch (IOException e) {
+			throw new FormatException(e);
+		}
+	}
+	
+	public Feed parseFeed(Object obj) {
+		if (obj instanceof Feed)
+			return (Feed) obj;
+		else if (obj instanceof JSONObject)
+			return parseFeed((JSONObject) obj);
+		else
+			return null;
+	}
+	
+	private static Collection parseFeeds(JSONObject jObj) {
+		PagedList list = new PagedList();
+		list.setTotal(jObj.optInt("totalResults"));
+		JSONArray array = jObj.optJSONArray("results");
+		if (array != null) {
+			for (int i = 0; i < array.length(); i++) { 
+				list.add(parseFeed(array.getJSONObject(i)));
+			}
+		}
+		return list;
 	}
 }
