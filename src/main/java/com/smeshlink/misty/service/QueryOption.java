@@ -17,39 +17,35 @@ import com.smeshlink.misty.util.DateTimeUtils;
  *
  */
 public class QueryOption {
-	public static final int CONTENT_SUMMARY	=	0x0;
-	public static final int CONTENT_FULL	=	0x1;
+	public static final int WHATEVER	=	0x0;
 	
-	public static final int STATUS_ALL		=	0x0;
+	public static final int CONTENT_SUMMARY	=	0x1;
+	public static final int CONTENT_FULL	=	0x2;
+	
 	public static final int STATUS_LIVE		=	0x1;
 	public static final int STATUS_FROZEN	=	0x2;
 
-	public static final int ORDER_NONE		=	0x0;
-	public static final int ORDER_CREATED	=	0x1;
-	public static final int ORDER_UPDATED	=	0x2;
-	public static final int ORDER_ASC		=	0x4;
-	public static final int ORDER_DESC		=	0x8;
+	public static final int VIEW_GROUP		=	0x1;
+	public static final int VIEW_FLAT		=	0x2;
 
-	public static final int VIEW_GROUP	=	0x0;
-	public static final int VIEW_FLAT		=	0x1;
-
-	public static final int SAMPLE_NONE		=	0x0;
-	public static final int SAMPLE_AVG		=	0x1;
-	public static final int SAMPLE_MAX		=	0x2;
-	public static final int SAMPLE_MIN		=	0x3;
-	public static final int SAMPLE_RANDOM	=	0x4;
+	public static final int SAMPLE_NONE		=	0x1;
+	public static final int SAMPLE_AVG		=	0x2;
+	public static final int SAMPLE_MAX		=	0x3;
+	public static final int SAMPLE_MIN		=	0x4;
+	public static final int SAMPLE_RANDOM	=	0x5;
 	
 	public static final QueryOption DEFAULT = new QueryOption();
 	
 	private int content;
 	private int status;
-	private int order;
 	private int view;
 	private int sample;
 	private int offset = 0;
 	private int limit = -1;
 	private Date startTime;
 	private Date endTime;
+    private String order;
+    private boolean desc = false;
 	
 	public QueryOption() {
 	}
@@ -57,7 +53,7 @@ public class QueryOption {
 	public QueryOption(IServiceRequest request) {
 		setContent(parseContent(request.getParameter("content")));
 		setStatus(parseStatus(request.getParameter("status")));
-		setOrder(parseOrder(request.getParameter("order")));
+		setOrder(request.getParameter("order"));
 		setView(parseView(request.getParameter("view")));
 		setSample(parseSample(request.getParameter("sample")));
 		
@@ -125,31 +121,35 @@ public class QueryOption {
 	
 	public static int parseContent(String value) {
 		if (value == null)
-			return CONTENT_FULL;
+			return WHATEVER;
 		else if ("summary".equalsIgnoreCase(value))
 			return CONTENT_SUMMARY;
-		else
+		else if ("full".equalsIgnoreCase(value))
 			return CONTENT_FULL;
+		else
+			return WHATEVER;
 	}
 	
 	public static int parseStatus(String value) {
 		if (value == null)
-			return STATUS_ALL;
+			return WHATEVER;
 		else if ("live".equalsIgnoreCase(value))
 			return STATUS_LIVE;
 		else if ("frozen".equalsIgnoreCase(value))
 			return STATUS_FROZEN;
 		else
-			return STATUS_ALL;
+			return WHATEVER;
 	}
 	
 	public static int parseView(String value) {
 		if (value == null)
-			return VIEW_GROUP;
+			return WHATEVER;
 		else if ("flat".equalsIgnoreCase(value))
 			return VIEW_FLAT;
-		else
+		else if ("group".equalsIgnoreCase(value))
 			return VIEW_GROUP;
+		else
+			return WHATEVER;
 	}
 	
 	public static int parseSample(String value) {
@@ -166,32 +166,6 @@ public class QueryOption {
 		else
 			return SAMPLE_NONE;
 	}
-	
-	public static int parseOrder(String value) {
-		int order = ORDER_NONE;
-		if (value != null) {
-			String[] tmp = value.split(",");
-			for (int i = 0; i < tmp.length; i++) {
-				if ("created".equalsIgnoreCase(tmp[i]))
-					order |= ORDER_CREATED;
-				else if ("updated".equalsIgnoreCase(tmp[i]))
-					order |= ORDER_UPDATED;
-				else if ("asc".equalsIgnoreCase(tmp[i]))
-					order |= ORDER_ASC;
-				else if ("desc".equalsIgnoreCase(tmp[i]))
-					order |= ORDER_DESC;
-			}
-		}
-		return order;
-	}
-	
-	public static int parseOrder(String[] values) {
-		int order = ORDER_NONE;
-		for (int i = 0; i < values.length; i++) {
-			order |= parseOrder(values[i]);
-		}
-		return order;
-	}
 
 	public void setContent(int content) {
 		this.content = content;
@@ -199,6 +173,17 @@ public class QueryOption {
 
 	public int getContent() {
 		return content;
+	}
+	
+	public String getContentString() {
+		switch (content) {
+		case CONTENT_SUMMARY:
+			return "summary";
+		case CONTENT_FULL:
+			return "full";
+		default:
+			return null;
+		}
 	}
 
 	public void setStatus(int status) {
@@ -208,12 +193,23 @@ public class QueryOption {
 	public int getStatus() {
 		return status;
 	}
+	
+	public String getStatusString() {
+		switch (status) {
+		case STATUS_LIVE:
+			return "live";
+		case STATUS_FROZEN:
+			return "frozen";
+		default:
+			return null;
+		}
+	}
 
-	public void setOrder(int order) {
+	public void setOrder(String order) {
 		this.order = order;
 	}
 
-	public int getOrder() {
+	public String getOrder() {
 		return order;
 	}
 
@@ -224,6 +220,17 @@ public class QueryOption {
 	public int getView() {
 		return view;
 	}
+	
+	public String getViewString() {
+		switch (view) {
+		case VIEW_FLAT:
+			return "flat";
+		case VIEW_GROUP:
+			return "group";
+		default:
+			return null;
+		}
+	}
 
 	public void setSample(int sample) {
 		this.sample = sample;
@@ -231,6 +238,21 @@ public class QueryOption {
 
 	public int getSample() {
 		return sample;
+	}
+	
+	public String getSampleString() {
+		switch (sample) {
+		case SAMPLE_AVG:
+			return "avg";
+		case SAMPLE_MAX:
+			return "max";
+		case SAMPLE_MIN:
+			return "min";
+		case SAMPLE_RANDOM:
+			return "random";
+		default:
+			return null;
+		}
 	}
 
 	public void setOffset(int offset) {
@@ -263,5 +285,13 @@ public class QueryOption {
 
 	public Date getEndTime() {
 		return endTime;
+	}
+
+	public boolean isDesc() {
+		return desc;
+	}
+
+	public void setDesc(boolean desc) {
+		this.desc = desc;
 	}
 }
