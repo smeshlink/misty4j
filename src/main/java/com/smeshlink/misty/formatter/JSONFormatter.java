@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2013 SmeshLink Technology Corporation.
+ * Copyright (c) 2011-2014 SmeshLink Technology Corporation.
  * All rights reserved.
  * 
  * This file is part of the Misty, a sensor cloud for WSN.
@@ -27,7 +27,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONWriter;
 
-import com.smeshlink.misty.command.CommandRequest;
 import com.smeshlink.misty.command.CommandResponse;
 import com.smeshlink.misty.entity.Entry;
 import com.smeshlink.misty.entity.Feed;
@@ -75,6 +74,10 @@ public class JSONFormatter implements IFeedFormatter {
 				
 				if (body instanceof Feed) {
 					write(writer, (Feed) body);
+				} else if (body instanceof Collection) {
+					write(writer, (Collection) body);
+				} else {
+					writer.value(body);
 				}
 			}
 			
@@ -228,37 +231,6 @@ public class JSONFormatter implements IFeedFormatter {
 		}
 	}
 	
-	public Object parseObject(Object obj) {
-		if (obj instanceof JSONArray) {
-			JSONArray jsonArray = (JSONArray) obj;
-			ArrayList list = new ArrayList();
-			for (int i = 0; i < jsonArray.length(); i++) {
-				JSONObject jsonObj = jsonArray.optJSONObject(i);
-				list.add(parseFeed(jsonObj));
-			}
-		} else if (obj instanceof JSONObject) {
-			JSONObject jsonObj = (JSONObject) obj;
-			Feed feed = parseFeed(jsonObj);
-			return feed;
-		}
-		
-		return null;
-	}
-	
-	public CommandRequest parseCommandRequest(JSONObject jsonObj) {
-		CommandRequest cmd = new CommandRequest();
-		cmd.setName(jsonObj.optString("name"));
-		cmd.setCmdKey(jsonObj.optString("cmdkey"));
-		JSONObject paramsObj = jsonObj.optJSONObject("params");
-		if (paramsObj != null) {
-			for (Iterator it = paramsObj.keys(); it.hasNext(); ) {
-				String key = (String) it.next();
-				cmd.getParameters().put(key, paramsObj.get(key));
-			}
-		}
-		return cmd;
-	}
-	
 	private static Feed parseFeed(JSONObject jsonObj) {
 		Feed feed = new Feed();
 		
@@ -402,7 +374,25 @@ public class JSONFormatter implements IFeedFormatter {
 		return null;
 	}
 	
-	private void write(JSONWriter writer, Feed feed) {
+	private static void write(JSONWriter writer, Collection feeds) {
+		writer.object();
+		
+		if (feeds instanceof PagedList) {
+			PagedList pl = (PagedList) feeds;
+			writeValue(writer, "totalResults", new Integer(pl.getTotal()));
+		}
+		
+		writer.key("results");
+		writer.array();
+		for (Iterator it = feeds.iterator(); it.hasNext(); ) {
+			write(writer, (Feed) it.next());
+		}
+		writer.endArray();
+		
+		writer.endObject();
+	}
+	
+	private static void write(JSONWriter writer, Feed feed) {
 		writer.object();
 
 		writeValue(writer, "name", feed.getName());
@@ -495,7 +485,7 @@ public class JSONFormatter implements IFeedFormatter {
 		writer.endObject();
 	}
 
-	private void write(JSONWriter writer, Entry value) {
+	private static void write(JSONWriter writer, Entry value) {
 		writer.object();
 		Object key = value.getKey();
 		if (key instanceof Date)
@@ -506,12 +496,12 @@ public class JSONFormatter implements IFeedFormatter {
 		writer.endObject();
 	}
 	
-	private void writeValue(JSONWriter writer, String name, Object value) {
+	private static void writeValue(JSONWriter writer, String name, Object value) {
 		if (value != null)
 			writer.key(name).value(value);
 	}
 	
-	private Writer getWriter(OutputStream stream) throws UnsupportedEncodingException {
+	private static Writer getWriter(OutputStream stream) throws UnsupportedEncodingException {
 		return new BufferedWriter(new OutputStreamWriter(stream, "UTF-8"));
 	}
 	

@@ -101,6 +101,10 @@ public class MistyService implements IMistyService {
 		return new FeedServiceImpl(parent == null ? null : ("/feeds/" + parent.getPath()));
 	}
 	
+	public IFeedService feed(String parent) {
+		return new FeedServiceImpl(parent == null ? null : ("/feeds/" + parent));
+	}
+	
 	class FeedServiceImpl implements IFeedService {
 		private final String context;
 		private ICredential credential;
@@ -114,6 +118,33 @@ public class MistyService implements IMistyService {
             	context = "/" + context;
 			
 			this.context = context;
+		}
+		
+		public Object command(Object cmd) {
+			ServiceRequestImpl request = newRequest("CMD");
+			request.setResource(context + ".json");
+			request.setFormat("json");
+			request.setBody(cmd);
+			
+			IServiceResponse response = null;
+			try {
+				response = execute(request);
+				
+				if (response == null) {
+					throw ServiceException.timeout(null);
+				} else if (response.getStatus() != 200) {
+					throw new ServiceException(response.getStatus());
+				} else {
+					return response.getBody();
+				}
+			} catch (ServiceException e) {
+				throw e;
+			} catch (Exception e) {
+				throw ServiceException.error(e);
+			} finally {
+				if (response != null)
+					response.dispose();
+			}
 		}
 		
 		public Collection list() throws ServiceException {

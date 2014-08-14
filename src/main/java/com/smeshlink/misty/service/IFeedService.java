@@ -22,4 +22,5 @@ public interface IFeedService {
 	boolean create(Feed feed) throws ServiceException;
 	boolean update(Feed feed) throws ServiceException;
 	boolean delete(String path) throws ServiceException;
+	Object command(Object cmd);
 }

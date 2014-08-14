@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2013 SmeshLink Technology Corporation.
+ * Copyright (c) 2011-2014 SmeshLink Technology Corporation.
  * All rights reserved.
  * 
  * This file is part of the Misty, a sensor cloud for WSN.
@@ -8,15 +8,12 @@ package com.smeshlink.misty.service;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-
-import com.smeshlink.misty.formatter.JSONFormatter;
 
 /**
  * Represents a JSON request to a service.
@@ -37,6 +34,7 @@ public class JsonRequest implements IServiceRequest {
 	
 	public JsonRequest(JSONObject json) {
 		this.json = json;
+		body = json.opt("body");
 	}
 
 	public String getFormat() {
@@ -155,24 +153,11 @@ public class JsonRequest implements IServiceRequest {
 		if (body == null) {
 			json.remove("body");
 		} else {
-			StringWriter sw = new StringWriter();
-			(new JSONFormatter()).format(sw, body);
-			json.put("body", sw.toString());
+			json.put("body", body);
 		}
 	}
 
 	public Object getBody() {
-		if (body == null) {
-			Object obj = json.opt("body");
-			if (obj != null) {
-				JSONFormatter formatter = new JSONFormatter();
-				if ("cmd".equalsIgnoreCase(getMethod())) {
-					body = formatter.parseCommandRequest((JSONObject) obj);
-				} else {
-					body = formatter.parseObject(obj);
-				}
-			}
-		}
 		return body;
 	}
 
