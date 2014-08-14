@@ -9,6 +9,7 @@ package com.smeshlink.misty.service.channel;
 
 import com.smeshlink.misty.entity.Feed;
 import com.smeshlink.misty.entity.User;
+import com.smeshlink.misty.service.IFeedService;
 
 /**
  * @author Longshine

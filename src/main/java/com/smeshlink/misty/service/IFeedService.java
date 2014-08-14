@@ -4,13 +4,11 @@
  * 
  * This file is part of the Misty, a sensor cloud for WSN.
  */
-package com.smeshlink.misty.service.channel;
+package com.smeshlink.misty.service;
 
 import java.util.Collection;
 
 import com.smeshlink.misty.entity.Feed;
-import com.smeshlink.misty.service.QueryOption;
-import com.smeshlink.misty.service.ServiceException;
 
 /**
  * @author Longshine
