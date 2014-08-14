@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.Map.Entry;
 
 /**
@@ -30,7 +31,8 @@ public class ServiceRequestImpl implements IServiceRequest {
 	private Object body;
 	private String resource;
 	private String format;
-	private String token;
+	private String token = UUID.randomUUID().toString();
+    private ICredential credential;
 
 	public String getFormat() {
 		return format;
@@ -92,6 +94,10 @@ public class ServiceRequestImpl implements IServiceRequest {
 	public void setMethod(String method) {
 		this.method = method;
 	}
+	
+	public Map getParameters() {
+		return parameters;
+	}
 
 	public String getParameter(String name) {
 		Object obj = parameters.get(name);
@@ -151,5 +157,13 @@ public class ServiceRequestImpl implements IServiceRequest {
 
 	public String getToken() {
 		return token;
+	}
+
+	public ICredential getCredential() {
+		return credential;
+	}
+
+	public void setCredential(ICredential credential) {
+		this.credential = credential;
 	}
 }

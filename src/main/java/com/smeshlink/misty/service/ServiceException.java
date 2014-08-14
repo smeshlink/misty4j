@@ -50,8 +50,8 @@ public class ServiceException extends RuntimeException {
 		throw new ServiceException(FORBIDDEN);
 	}
 	
-	public static void error(Throwable cause) throws ServiceException {
-		throw new ServiceException(INTERNAL_SERVER_ERROR, null, cause);
+	public static ServiceException error(Throwable cause) throws ServiceException {
+		return new ServiceException(INTERNAL_SERVER_ERROR, null, cause);
 	}
 	
 	public static void badRequest(String message) throws ServiceException {

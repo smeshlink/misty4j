@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2013 SmeshLink Technology Corporation.
+ * Copyright (c) 2011-2014 SmeshLink Technology Corporation.
  * All rights reserved.
  * 
  * This file is part of the Misty, a sensor cloud for WSN.
@@ -51,6 +51,10 @@ public interface IServiceRequest {
 	 * @return a <code>String</code> containing the value of the requested header
 	 */
 	String getHeader(String name);
+	/**
+	 * Gets all request headers.
+	 * @return
+	 */
 	Map getHeaders();
 	/**
 	 * Returns the value of a request parameter as a <code>String</code>,
@@ -84,6 +88,11 @@ public interface IServiceRequest {
 	 * @see	#getParameter
 	 */
 	String[] getParameters(String name);
+	/**
+	 * Gets all request parameters.
+	 * @return
+	 */
+	Map getParameters();
 	InputStream getInputStream() throws IOException;
 	String getToken();
 	Object getBody();
@@ -100,4 +109,6 @@ public interface IServiceRequest {
 	 */
 	String getFormat();
 	void setFormat(String format);
+	ICredential getCredential();
+	void setCredential(ICredential credential);
 }

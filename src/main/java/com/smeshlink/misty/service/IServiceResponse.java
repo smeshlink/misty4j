@@ -6,6 +6,8 @@
  */
 package com.smeshlink.misty.service;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 
 /**
@@ -14,9 +16,24 @@ import java.util.Map;
  */
 public interface IServiceResponse {
 	String getResource();
+	/**
+	 * Gets the status code.
+	 * @return
+	 */
 	int getStatus();
 	Object getBody();
+	/**
+	 * Gets all response headers.
+	 * @return
+	 */
 	Map getHeaders();
 	String getToken();
 	void setToken(String token);
+	/**
+	 * Gets the response stream.
+	 * @return
+	 * @throws IOException 
+	 */
+	InputStream getResponseStream() throws IOException;
+	void dispose();
 }
