@@ -27,7 +27,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONWriter;
 
-import com.smeshlink.misty.command.CommandResponse;
 import com.smeshlink.misty.entity.Entry;
 import com.smeshlink.misty.entity.Feed;
 import com.smeshlink.misty.entity.Location;
@@ -116,14 +115,16 @@ public class JSONFormatter implements IFeedFormatter {
 			if (response.getToken() != null)
 				writer.key("token").value(response.getToken());
 			
-			Object result = response.getBody();
-			if (result != null) {
+			Object body = response.getBody();
+			if (body != null) {
 				writer.key("body");
 				
-				if (result instanceof Feed) {
-					write(writer, (Feed) result);
-				} else if (result instanceof CommandResponse) {
-					write(writer, (CommandResponse) result);
+				if (body instanceof Feed) {
+					write(writer, (Feed) body);
+				} else if (body instanceof Collection) {
+					write(writer, (Collection) body);
+				} else {
+					writer.value(body);
 				}
 			}
 			
@@ -507,19 +508,6 @@ public class JSONFormatter implements IFeedFormatter {
 	
 	private JSONWriter getJSONWriter(Writer writer) throws UnsupportedEncodingException {
 		return new JSONWriter(writer);
-	}
-	
-	private void write(JSONWriter writer, CommandResponse response) {
-		writer.object();
-		
-		writeValue(writer, "status", String.valueOf(response.getStatus()));
-		writeValue(writer, "cmdkey", response.getCmdKey());
-		
-		if (response.getBody() != null) {
-			writer.key("body").value(response.getBody());
-		}
-		
-		writer.endObject();
 	}
 
 	public Collection parseFeeds(InputStream stream) {
