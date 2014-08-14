@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2013 SmeshLink Technology Corporation.
+ * Copyright (c) 2011-2014 SmeshLink Technology Corporation.
  * All rights reserved.
  * 
  * This file is part of the Misty, a sensor cloud for WSN.
@@ -7,13 +7,16 @@
 package com.smeshlink.misty.service.channel;
 
 import java.io.IOException;
-import java.io.StringWriter;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 
+import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.URI;
 import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.UsernamePasswordCredentials;
@@ -24,65 +27,29 @@ import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
 
-import com.smeshlink.misty.entity.Feed;
-import com.smeshlink.misty.entity.User;
-import com.smeshlink.misty.formatter.FormatException;
-import com.smeshlink.misty.formatter.IFeedFormatter;
-import com.smeshlink.misty.formatter.JSONFormatter;
-import com.smeshlink.misty.formatter.XmlFormatter;
-import com.smeshlink.misty.service.QueryOption;
+import com.smeshlink.misty.service.ICredential;
+import com.smeshlink.misty.service.IServiceRequest;
+import com.smeshlink.misty.service.IServiceResponse;
+import com.smeshlink.misty.service.MistyService;
 import com.smeshlink.misty.service.ServiceException;
+import com.smeshlink.misty.service.UserCredential;
 
 /**
+ * HTTP channel.
+ * 
  * @author Longshine
  * 
  */
 public class HttpChannel implements IServiceChannel {
-	public static final int MEDIA_TYPE_JSON = 0;
-	public static final int MEDIA_TYPE_XML = 1;
-	public static final int MEDIA_TYPE_CSV = 2;
-
-	private static final String HEADER_KEY_API = "X-ApiKey";
-	private static final String HEADER_ACCEPT = "Accept";
-	private static final String HEADER_USER_AGENT = "User-Agent";
-	private static final String USER_AGENT = "Misty-Java-Lib/0.1.0";
-
-	private String host = "api.misty.smeshlink.com";
-	private String apiKey;
-	private String username;
-	private String password;
-	private User user;
-	private int mediaType;
+	private String host;
 	private HttpClient client = new HttpClient();
 	
-	public HttpChannel(String username, String password) {
-		this.username = username;
-		this.password = password;
-		prepareUsernamePasswordCredentials();
+	public HttpChannel(String host) {
+		this.host = host;
 	}
 	
-	public HttpChannel(String apiKey) {
-		this.apiKey = apiKey;
-	}
-	
-	public IFeedService feed() {
-		return new FeedService(null);
-	}
-
-	public IFeedService feed(User user) {
-		return new FeedService(user.getUsername());
-	}
-
-	public IFeedService feed(Feed parent) {
-		return new FeedService(parent == null ? null : ("/feeds/" + parent.getPath()));
-	}
-	
-	public void addCommandListener(ICommandListener listener) {
-		// TODO
-	}
-	
-	public void removeCommandListener(ICommandListener listener) {
-		// TODO
+	public void setRequestListener(IRequestListener listener) {
+		// do nothing
 	}
 	
 	public void setTimeout(int timeout) {
@@ -101,81 +68,28 @@ public class HttpChannel implements IServiceChannel {
 	public String getHost() {
 		return host;
 	}
-
-	public void setUsername(String username) {
-		this.username = username;
-		prepareUsernamePasswordCredentials();
-	}
-
-	public String getUsername() {
-		return username;
-	}
-
-	public void setPassword(String password) {
-		this.password = password;
-		prepareUsernamePasswordCredentials();
-	}
-
-	public String getPassword() {
-		return password;
-	}
 	
-	public String getApiKey() {
-		return apiKey;
-	}
-
-	public void setApiKey(String apiKey) {
-		this.apiKey = apiKey;
-	}
-
-	public int getMediaType() {
-		return mediaType;
-	}
-
-	public void setMediaType(int mediaType) {
-		this.mediaType = mediaType;
-	}
-	
-	private void prepareUsernamePasswordCredentials() {
-		if (username != null && password != null) {
-			user = new User();
-			user.setUsername(username);
-			client.getParams().setAuthenticationPreemptive(true);
-			client.getState().setCredentials(AuthScope.ANY,
-					new UsernamePasswordCredentials(username, password));
+	public IServiceResponse execute(IServiceRequest request) {
+		HttpMethod method = buildMethod(request);
+		
+		try {
+			return new HttpResponse(request.getResource(), client.executeMethod(method), method);
+		} catch (IOException e) {
+			throw ServiceException.error(e);
 		}
 	}
 	
-	private String getContentType() {
-		if (mediaType == MEDIA_TYPE_JSON)
-			return "application/json";
-		else if (mediaType == MEDIA_TYPE_XML)
-			return "application/xml";
-		else if (mediaType == MEDIA_TYPE_CSV)
-			return "text/plain";
-		else
-			return null;
-	}
-	
-	private String getExtension() {
-		if (mediaType == MEDIA_TYPE_JSON)
-			return ".json";
-		else if (mediaType == MEDIA_TYPE_XML)
-			return ".xml";
-		else if (mediaType == MEDIA_TYPE_CSV)
-			return ".csv";
-		else
-			return "";
-	}
-	
-	private HttpMethod buildMethod(String method, String path, String entity) {
+	private HttpMethod buildMethod(IServiceRequest request) {
+		String method = request.getMethod();
+		String entity = null;
+		String contentType = MistyService.getContentType(request.getFormat());
 		HttpMethod m = null;
 		if ("GET".equals(method)) {
 			m = new GetMethod();
 		} else if ("POST".equals(method)) {
 			PostMethod post = new PostMethod();
 			try {
-				post.setRequestEntity(new StringRequestEntity(entity, getContentType(), "utf-8"));
+				post.setRequestEntity(new StringRequestEntity(entity, contentType, "utf-8"));
 			} catch (UnsupportedEncodingException e) {
 				ServiceException.badRequest(e.getMessage());
 			}
@@ -183,7 +97,7 @@ public class HttpChannel implements IServiceChannel {
 		} else if ("PUT".equals(method)) {
 			PutMethod put = new PutMethod();
 			try {
-				put.setRequestEntity(new StringRequestEntity(entity, getContentType(), "utf-8"));
+				put.setRequestEntity(new StringRequestEntity(entity, contentType, "utf-8"));
 			} catch (UnsupportedEncodingException e) {
 				ServiceException.badRequest(e.getMessage());
 			}
@@ -194,109 +108,100 @@ public class HttpChannel implements IServiceChannel {
 			ServiceException.badRequest("Unknown request method " + method);
 		}
 
+		String path = request.getResource();
+		if (request.getFormat() != null)
+			path += "." + request.getFormat();
 		try {
-			m.setURI(new URI("http", host, path + getExtension(), null, null));
+			m.setURI(new URI("http", host, path, null, null));
 		} catch (URIException e) {
 			ServiceException.badRequest("Invalid URI requested.");
 		}
-
-		m.setRequestHeader(HEADER_ACCEPT, getContentType());
-		m.setRequestHeader(HEADER_USER_AGENT, USER_AGENT);
-		if (apiKey != null)
-			m.setRequestHeader(HEADER_KEY_API, apiKey);
+		
+		Map headers = request.getHeaders();
+		if (headers != null) {
+			for (Iterator it = headers.entrySet().iterator(); it.hasNext(); ) {
+				Map.Entry entry = (Entry) it.next();
+				if (entry.getKey() == null || entry.getValue() == null)
+					continue;
+				m.setRequestHeader(entry.getKey().toString(), entry.getValue().toString());
+			}
+		}
+		m.setRequestHeader(MistyService.HEADER_USER_AGENT, MistyService.VERSION);
+		m.setRequestHeader(MistyService.HEADER_ACCEPT, contentType);
+		
+		ICredential cred = request.getCredential();
+		if (cred == null) {
+			client.getParams().setAuthenticationPreemptive(false);
+			client.getState().clearCredentials();
+		} else if (cred instanceof UserCredential) {
+			UserCredential uc = (UserCredential) cred;
+			client.getParams().setAuthenticationPreemptive(true);
+			client.getState().setCredentials(AuthScope.ANY,
+					new UsernamePasswordCredentials(uc.getUsername(), uc.getPassword()));
+		} else {
+			ICredential.Pair pair = cred.getCredential();
+			m.setRequestHeader(pair.getKey(), pair.getValue());
+		}
+		
+		Map params = request.getParameters();
+		if (params != null) {
+			for (Iterator it = params.entrySet().iterator(); it.hasNext(); ) {
+				Map.Entry entry = (Entry) it.next();
+				if (entry.getKey() == null || entry.getValue() == null)
+					continue;
+				m.getParams().setParameter(entry.getKey().toString(), entry.getValue());
+			}
+		}
 		
 		return m;
 	}
 	
-	private IFeedFormatter getFormatter() {
-		if (mediaType == MEDIA_TYPE_JSON)
-			return new JSONFormatter();
-		else if (mediaType == MEDIA_TYPE_XML)
-			return new XmlFormatter();
-		else
-			return null;
-	}
-
-	class FeedService extends AbstractFeedService {
+	class HttpResponse implements IServiceResponse {
+		private final String resource;
+		private final int statusCode;
+		private HttpMethod method;
 		
-		public FeedService(String context) {
-			super(context);
+		public HttpResponse(String resource, int statusCode, HttpMethod method) {
+			this.resource = resource;
+			this.statusCode = statusCode;
+			this.method = method;
 		}
 
-		public Feed find(String path, QueryOption opt) throws ServiceException {
-			String url = getContext() + "/" + path;
-			
-			HttpMethod method = buildMethod("GET", url, null);
-			
-			try {
-				int statusCode = client.executeMethod(method);
+		public String getResource() {
+			return resource;
+		}
 
-				if (statusCode == HttpStatus.SC_OK) {
-					return getFormatter().parseFeed(method.getResponseBodyAsStream());
-				}
-			} catch (IOException e) {
-				ServiceException.error(e);
-			} catch (FormatException e) {
-				ServiceException.error(e);
-			} finally {
-				method.releaseConnection();
-			}
-			
+		public int getStatus() {
+			return statusCode;
+		}
+
+		public Object getBody() {
 			return null;
 		}
 
-		public Collection list(QueryOption opt) throws ServiceException {
-			// TODO Auto-generated method stub
+		public Map getHeaders() {
+			Map map = new HashMap();
+			Header[] headers = method.getResponseHeaders();
+			for (int i = 0; i < headers.length; i++) {
+				map.put(headers[i].getName(), headers[i].getValue());
+			}
+			return map;
+		}
+
+		public String getToken() {
 			return null;
 		}
 
-		public boolean create(Feed feed) throws ServiceException {
-			StringWriter writer = new StringWriter();
-			getFormatter().format(writer, feed);
-			
-			HttpMethod method = buildMethod("POST", getContext(), writer.toString());
-			
-			try {
-				int status = client.executeMethod(method);
-				if (status == HttpStatus.SC_CREATED)
-					return true;
-			} catch (IOException e) {
-				ServiceException.error(e);
-			} catch (FormatException e) {
-				ServiceException.error(e);
-			} finally {
-				method.releaseConnection();
-			}
-			
-			return false;
+		public void setToken(String token) {
+			// do nothing
 		}
 
-		public boolean update(Feed feed) throws ServiceException {
-			String url = getContext() + "/" + feed.getName();
-			
-			StringWriter writer = new StringWriter();
-			getFormatter().format(writer, feed);
-			
-			HttpMethod method = buildMethod("PUT", url, writer.toString());
-			
-			try {
-				int status = client.executeMethod(method);
-				if (status == HttpStatus.SC_NO_CONTENT)
-					return true;
-			} catch (IOException e) {
-				ServiceException.error(e);
-			} catch (FormatException e) {
-				ServiceException.error(e);
-			} finally {
-				method.releaseConnection();
-			}
-			
-			return false;
+		public InputStream getResponseStream() throws IOException {
+			return method.getResponseBodyAsStream();
 		}
 
-		public boolean delete(String path) throws ServiceException {
-			// TODO Auto-generated method stub
-			return false;
+		public void dispose() {
+			method.releaseConnection();
 		}
 	}
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2013 SmeshLink Technology Corporation.
+ * Copyright (c) 2011-2014 SmeshLink Technology Corporation.
  * All rights reserved.
  * 
  * This file is part of the Misty, a sensor cloud for WSN.
@@ -12,73 +12,44 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import org.json.JSONObject;
 
-import com.smeshlink.misty.command.CommandRequest;
-import com.smeshlink.misty.command.CommandResponse;
-import com.smeshlink.misty.entity.Feed;
-import com.smeshlink.misty.entity.User;
 import com.smeshlink.misty.formatter.JSONFormatter;
+import com.smeshlink.misty.service.ICredential;
 import com.smeshlink.misty.service.IServiceRequest;
 import com.smeshlink.misty.service.IServiceResponse;
 import com.smeshlink.misty.service.JsonRequest;
 import com.smeshlink.misty.service.JsonResponse;
-import com.smeshlink.misty.service.QueryOption;
-import com.smeshlink.misty.service.ServiceException;
-import com.smeshlink.misty.service.ServiceRequestImpl;
-import com.smeshlink.misty.service.ServiceResponse;
-import com.smeshlink.misty.util.Base64;
+import com.smeshlink.misty.service.MistyService;
 
 /**
+ * TCP channel.
+ * 
  * @author Longshine
  * 
  */
 public class TcpChannel implements IServiceChannel {
-	private String host = "api.misty.smeshlink.com";
+	private String host;
 	private int port = 9011;
 	private InetSocketAddress address;
-	private String apiKey;
-	private String username;
-	private String password;
-	private String auth;
 	private int retryInterval = 10000;
 	private int maxPoolSize = 1;
 	private List pool = new ArrayList();
 	private JSONFormatter formatter = new JSONFormatter();
-	private List commandListeners = new ArrayList();
+	private IRequestListener requestListener;
 	private int timeout = 3000;
 	
-	public TcpChannel(String username, String password) {
-		this.username = username;
-		this.password = password;
-		prepareUsernamePasswordCredentials();
-	}
+	public TcpChannel(String host) {
+        setHost(host);
+    }
 	
-	public IFeedService feed() {
-		return new FeedService(null);
-	}
-
-	public IFeedService feed(User user) {
-		return new FeedService(user.getUsername());
-	}
-
-	public IFeedService feed(Feed parent) {
-		return new FeedService(parent == null ? null : ("/feeds/" + parent.getPath()));
-	}
-	
-	public void addCommandListener(ICommandListener listener) {
-		commandListeners.add(listener);
-	}
-	
-	public void removeCommandListener(ICommandListener listener) {
-		commandListeners.remove(listener);
+	public void setRequestListener(IRequestListener listener) {
+		requestListener = listener;
 	}
 	
 	public void setTimeout(int timeout) {
@@ -89,8 +60,19 @@ public class TcpChannel implements IServiceChannel {
 		return timeout;
 	}
 	
-	private synchronized IServiceResponse execute(IServiceRequest request) throws IOException {
+	public synchronized IServiceResponse execute(IServiceRequest request) {
 		Connector connector = getConnector();
+		
+		request.getHeaders().put(MistyService.HEADER_CONTENT_TYPE,
+				MistyService.getContentType(request.getFormat()));
+        request.getHeaders().put(MistyService.HEADER_USER_AGENT,
+        		MistyService.VERSION);
+        
+        ICredential cred = request.getCredential();
+        if (cred != null) {
+        	ICredential.Pair pair = cred.getCredential();
+        	request.getHeaders().put(pair.getKey(), pair.getValue());
+        }
 		
 		Pair pair = connector.execute(request);
 		connector.free();
@@ -213,21 +195,11 @@ public class TcpChannel implements IServiceChannel {
 		}
 		
 		private void processRequest(IServiceRequest request) {
-			if (request.getMethod().equalsIgnoreCase("cmd")) {
-				System.out.println(request);
-				// TODO aggregate responses
-				CommandRequest cmdReq = (CommandRequest) request.getBody();
-				CommandResponse cmdResp = null;
-				for (Iterator it = commandListeners.iterator(); it.hasNext(); ) {
-					ICommandListener listener = (ICommandListener) it.next();
-					cmdResp = listener.command(cmdReq);
-				}
-				if (cmdResp != null) {
-					cmdResp.setCmdKey(cmdReq.getCmdKey());
-					ServiceResponse response = new ServiceResponse();
-					response.setStatus(cmdResp.getStatus());
-					response.setBody(cmdResp);
-					response.setToken(request.getToken());
+			if (requestListener != null) {
+				IServiceResponse response = requestListener.process(request);
+				if (response != null) {
+					if (response.getToken() == null)
+						response.setToken(request.getToken());
 					send(response);
 				}
 			}
@@ -385,104 +357,6 @@ public class TcpChannel implements IServiceChannel {
         
         return bs;
     }
-	
-	class FeedService extends AbstractFeedService {
-		
-		public FeedService(String context) {
-			super(context);
-		}
-
-		public Feed find(String path, QueryOption opt) throws ServiceException {
-			String url = getContext() + "/" + path;
-			
-			IServiceRequest request = newRequest("GET", url, null);
-			
-			// TODO add query option
-			
-			IServiceResponse response = null;
-			try {
-				response = execute(request);
-			} catch (IOException e) {
-				ServiceException.error(e);
-			}
-			
-			if (response == null) {
-				ServiceException.timeout("Timeout");
-			} else if (response.getStatus() == 200) {
-				return (Feed) response.getBody();
-			} else if (response.getStatus() == 404) {
-				return null;
-			} else {
-				throw new ServiceException(response.getStatus());
-			}
-			
-			return null;
-		}
-
-		public Collection list(QueryOption opt) throws ServiceException {
-			// TODO Auto-generated method stub
-			return null;
-		}
-
-		public boolean create(Feed feed) throws ServiceException {
-			IServiceRequest request = newRequest("POST", getContext(), feed);
-			
-			IServiceResponse response = null;
-			try {
-				response = execute(request);
-			} catch (IOException e) {
-				ServiceException.error(e);
-			}
-			
-			if (response == null) {
-				ServiceException.timeout("Timeout");
-			} else if (response.getStatus() == 201) {
-				return true;
-			} else {
-				throw new ServiceException(response.getStatus());
-			}
-			
-			return false;
-		}
-
-		public boolean update(Feed feed) throws ServiceException {
-			String url = getContext() + "/" + feed.getName();
-			
-			IServiceRequest request = newRequest("PUT", url, feed);
-			
-			IServiceResponse response = null;
-			try {
-				response = execute(request);
-			} catch (IOException e) {
-				ServiceException.error(e);
-			}
-			
-			if (response == null) {
-				ServiceException.timeout("Timeout");
-			} else if (response.getStatus() == 204) {
-				return true;
-			} else {
-				throw new ServiceException(response.getStatus());
-			}
-			
-			return false;
-		}
-
-		public boolean delete(String path) throws ServiceException {
-			// TODO Auto-generated method stub
-			return false;
-		}
-	}
-	
-	private IServiceRequest newRequest(String method, String resource, Object body) {
-		ServiceRequestImpl request = new ServiceRequestImpl();
-		request.setMethod(method);
-		request.addHeader("authorization", auth);
-		request.setResource(resource);
-		request.setBody(body);
-		request.setToken(UUID.randomUUID().toString());
-		return request;
-	}
 
 	public String getHost() {
 		return host;
@@ -521,37 +395,5 @@ public class TcpChannel implements IServiceChannel {
 	
 	public void setAddress(InetSocketAddress address) {
 		this.address = address;
-	}
-	
-	public void setUsername(String username) {
-		this.username = username;
-		prepareUsernamePasswordCredentials();
-	}
-
-	public String getUsername() {
-		return username;
-	}
-
-	public void setPassword(String password) {
-		this.password = password;
-		prepareUsernamePasswordCredentials();
-	}
-
-	public String getPassword() {
-		return password;
-	}
-	
-	public String getApiKey() {
-		return apiKey;
-	}
-
-	public void setApiKey(String apiKey) {
-		this.apiKey = apiKey;
-	}
-	
-	private void prepareUsernamePasswordCredentials() {
-		if (username != null && password != null) {
-			auth = "BASIC " + Base64.encodeString(username + ":" + password);
-		}
 	}
 }

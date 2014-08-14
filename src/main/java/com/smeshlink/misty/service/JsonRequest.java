@@ -29,6 +29,7 @@ public class JsonRequest implements IServiceRequest {
 	private Object body;
 	private String format;
 	private String host;
+    private ICredential credential;
 	
 	public JsonRequest() {
 		this(new JSONObject());
@@ -176,7 +177,6 @@ public class JsonRequest implements IServiceRequest {
 	}
 
 	public InputStream getInputStream() throws IOException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 	
@@ -186,5 +186,18 @@ public class JsonRequest implements IServiceRequest {
 	
 	public String toString() {
 		return json.toString();
+	}
+
+	public Map getParameters() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	public ICredential getCredential() {
+		return credential;
+	}
+
+	public void setCredential(ICredential credential) {
+		this.credential = credential;
 	}
 }

@@ -6,21 +6,22 @@
  */
 package com.smeshlink.misty.service.channel;
 
-
-import com.smeshlink.misty.entity.Feed;
-import com.smeshlink.misty.entity.User;
-import com.smeshlink.misty.service.IFeedService;
+import com.smeshlink.misty.service.IServiceRequest;
+import com.smeshlink.misty.service.IServiceResponse;
 
 /**
  * @author Longshine
  * 
  */
 public interface IServiceChannel {
-	IFeedService feed();
-	IFeedService feed(User user);
-	IFeedService feed(Feed parent);
 	void setTimeout(int timeout);
 	int getTimeout();
-	void addCommandListener(ICommandListener listener);
-	void removeCommandListener(ICommandListener listener);
+	void setRequestListener(IRequestListener listener);
+	
+	/**
+	 * Executes a request and returns its response.
+	 * @param request
+	 * @return
+	 */
+	IServiceResponse execute(IServiceRequest request);
 }

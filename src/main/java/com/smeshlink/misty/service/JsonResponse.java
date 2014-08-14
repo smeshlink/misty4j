@@ -1,11 +1,13 @@
 /**
- * Copyright (c) 2011-2013 SmeshLink Technology Corporation.
+ * Copyright (c) 2011-2014 SmeshLink Technology Corporation.
  * All rights reserved.
  * 
  * This file is part of the Misty, a sensor cloud for WSN.
  */
 package com.smeshlink.misty.service;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -72,7 +74,11 @@ public class JsonResponse implements IServiceResponse {
 	}
 
 	public void setHeader(String name, String value) {
-		// not support
+		 if (headers == null) {
+			 headers = new JSONObject();
+			 json.put("headers", headers);
+         }
+		 headers.put(name, value);
 	}
 	
 	public String getToken() {
@@ -81,5 +87,13 @@ public class JsonResponse implements IServiceResponse {
 
 	public void setToken(String token) {
 		json.put("token", token);
+	}
+
+	public InputStream getResponseStream() throws IOException {
+		return null;
+	}
+
+	public void dispose() {
+		// do nothing
 	}
 }
